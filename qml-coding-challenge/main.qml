@@ -1,6 +1,8 @@
 import QtQuick 2.12
 import QtQuick.Window 2.12
 import QtWebSockets 1.1
+
+// Once finished, possibly do "chattutorial" implementation
 Window {
     visible: true
     width: 640
@@ -97,7 +99,7 @@ Window {
             radius: 5
         }
 
-        // Text Input Area
+        // Text Input Area (Later Create a seperate file)
         Rectangle{
             x: 5
             y: 405 // 390 + 5(margin)
@@ -106,16 +108,39 @@ Window {
             border.color: "black"
             border.width: 2
             radius: 5
+
+            // do research on all fields
+            TextInput{
+                id: textInput
+
+                color: "black"
+                font.family: "Montserrat"
+                font.pointSize: 10
+
+
+                wrapMode: Text.WrapAnywhere
+                anchors.fill: parent
+                clip: true
+                selectByMouse: true
+                padding: 4
+
+            }
+
         }
-        // send button (temporary set up)
-        Rectangle{
+
+        Button{
+            id: sendButton
             x: 348
             y: 405
             width: 95
             height: 70
-            border.color: "black"
-            border.width: 2
+            label: "Send"
+
+            onButtonClick: socket.sendTextMessage("Testing Server")
+
         }
+
+
 
     }
 

@@ -22,12 +22,9 @@ function isJSON (something) {
     }
 }
 
-// This mehod retrieves the name of the user which disconnected. The method
-// iterates through the list of the currently connected users and searches
-// for the mathcing UUID, which was passed in. Once the matching UUID has
-// been found, the corresponding name of the UUID is assigned to the name
-// variable and then returned. Also the user is delted from both connected
-// usere lists.
+// This method returns the corresponding name of the UUID that
+// was passed in. Also it deletes the value from both connected user
+// lists.
 function getUserAndDelete(id){
     var name
     connectedUsrsLenth = countProperties(connected_users_w_id)
@@ -50,6 +47,20 @@ function getUserAndDelete(id){
     }
     return name
 }
+
+// This method rerturns the correspding UUID of the user name that was
+// passed.
+function getID(name){
+  connectedUsrsLenth = countProperties(connected_users_w_id)
+  for(var i = 0; i < numUsers; i++){
+    if(removedIndeces.includes(i) === false){
+      if(name === connected_users_w_id[i].name)
+        id = connected_users_w_id[i].UUID
+    }
+  }
+  return id
+}
+
 // Returns the number of items in an object
 //https://stackoverflow.com/questions/956719/number-of-elements-in-a-javascript-object
 function countProperties(obj) {
@@ -73,13 +84,29 @@ wss.on('connection', function connection(ws, request) {
     // message. (NOTE: the only time a message will not be a JSON object, is
     // the first message from every client.)
     if(isJSON(message) === true){
-      var obj = JSON.parse(message)
-      // send message to all clients
-      wss.clients.forEach(function each(client){
-        if(client.readyState === WebSocket.OPEN){
-          client.send(message)
-        }
-      })
+
+      // Check if message is a private message, if the message is private. If
+      // the 'Private Message Recipient' field is set to NULL, then the message
+      // is for every client. If the field contains a name, then the message is
+      // private and the name is the correspding private message recipient.
+      if(JSON.parse(message).prvtMsgRecipient === "NULL"){
+        // send message to all clients
+        wss.clients.forEach(function each(client){
+          if(client.readyState === WebSocket.OPEN){
+            client.send(message)
+          }
+        })
+      } else {
+        // get id of client having private message being sent to
+        clientsID = getID(JSON.parse(message).prvtMsgRecipient)
+
+        //send to correspding UUID and self
+        wss.clients.forEach(function each(client){
+          if(client.readyState === WebSocket.OPEN && (client.client_id === clientsID || client === ws) ){
+            client.send(message)
+          }
+        })
+      }
 
     } else{
       // get the name of the name of the newly connected client, by getting
@@ -103,7 +130,8 @@ wss.on('connection', function connection(ws, request) {
         message: "NULL",
         name: clientName,
         UUID: ws.client_id,
-        connectedUsers: connected_users
+        connectedUsers: connected_users,
+        prvtMsgRecipient: "NULL"
       }
 
       // This object is sent out to all clients, except the newly connected
@@ -116,7 +144,8 @@ wss.on('connection', function connection(ws, request) {
         message: "NULL",
         name: clientName,
         UUID: ws.client_id,
-        connectedUsers: {}
+        connectedUsers: {},
+        prvtMsgRecipient: "NULL"
       }
 
       // sending data to clients
@@ -130,11 +159,8 @@ wss.on('connection', function connection(ws, request) {
           client.send(JSON.stringify(addUsr))
         }
       })
-
         numUsers++
     }
-
-
   })
 
 

@@ -7,6 +7,8 @@ Page{
     id: root
     property string currentUser         // holds the name of the current user of the client
     property int numUsersConnected: 0   // holds the number of currently connected users to this client
+    property string prvtMsgRecipient: "NULL" // pirvate message recipient ( used of the extra credit portion)
+
 
     WebSocket{
         id:socket
@@ -107,6 +109,10 @@ Page{
     // Removes a user from the display board
     function removeUser(user){
         for(var i = 0; i < numUsersConnected; i++){
+            if(user === prvtMsgRecipient){
+                prvtMsgRecipient = "NULL"
+            }
+
             if(user === connectedUsrsListModel.get(i).displayedUser){
                 connectedUsrsListModel.remove(i)
                 numUsersConnected--
@@ -160,6 +166,25 @@ Page{
                     width: 192
                     height: 25
                     scale: pressed ? 1.1 : 1
+                    // The following method is responsible for assigning
+                    // the current private message recipient based, on the user button
+                    // that was selected. Also this methods displays a message in the
+                    // message board, notifying that a private message session has started
+                    // and ended.
+                    onClicked: function(){
+                        if(prvtMsgRecipient === "NULL"){
+                            chatTranscriptText.append("Only " + displayedUser + " will see your messages now.")
+                            prvtMsgRecipient = displayedUser
+                        } else if(prvtMsgRecipient === displayedUser){
+                            chatTranscriptText.append("Private message session with " + displayedUser + " has ended, you are back in general chat.")
+                            prvtMsgRecipient = "NULL"
+                        } else{
+                            chatTranscriptText.append("Private message session with " + prvtMsgRecipient + " has ended")
+                            chatTranscriptText.append("Only " + displayedUser + " will see your messages now")
+                            prvtMsgRecipient = displayedUser
+                        }
+                    }
+
                     Behavior on scale { NumberAnimation { duration: 100 } }
                     background: Rectangle{
                         color: "#4D6DDB"
@@ -240,21 +265,37 @@ Page{
         border.width: 2
         radius: 5
 
-        // send data to the server, which was
-        // inputted into this 'text input box'
+        // Check if the message, which was inputted into the 'text input box'
+        // is a private message or not. if yes, then a private message recipient
+        // is added to the prvtMsgRecipient field, other wise the message
+        // is marked to be recieved by all
         function sendData(){
             if(textInput.text.length > 0){
-                var userName = currentUser
-                var myData = {
+                var userName
+                var myData
+                if(prvtMsgRecipient !== "NULL"){
+                    userName = currentUser
+                    myData = {
+                        dataType: "message",
+                        name: userName,
+                        message: textInput.text + " (private)",
+                        UUID: "NULL",
+                        connectedUsers: {},
+                        prvtMsgRecipient: prvtMsgRecipient
+                        };
+                 } else{
+                    userName = currentUser
+                    myData = {
                         dataType: "message",
                         name: userName,
                         message: textInput.text,
                         UUID: "NULL",
-                        connectedUsers: {}
+                        connectedUsers: {},
+                        prvtMsgRecipient: "NULL"
                         };
-                var theData = JSON.stringify(myData)
-
-                socket.sendTextMessage(theData)
+                 }
+                //var theData = JSON.stringify(myData)
+                socket.sendTextMessage(JSON.stringify(myData))
                 textInput.clear()
 
             }

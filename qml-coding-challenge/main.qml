@@ -8,10 +8,7 @@ Window {
     visible: true
     width: 640
     height: 480
-    //flags: setMaximumHeight(480)
-    //flags: Qt.WindowMaximized
-     //setMaximumHeight(480), setMaximumWidth(640)
-    //flags: setGeometry(0,0,640,480)
+    //flags: setMaximumHeight(480) | setMaximumWidth(640)
 
     title: qsTr("Chat Coding Challenge")
 

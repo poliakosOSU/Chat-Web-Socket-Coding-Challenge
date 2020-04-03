@@ -3,12 +3,13 @@ const uuid = require('uuid');
 
 const wss = new WebSocket.Server({ port: 8080 });
 
-connected_users_w_id = {}
-connected_users = {}
-removedIndeces = []
-numUsers = 0
+connected_users_w_id = {} // list of connected users with their correspding UUID
+connected_users = {}      // list of connected users
+removedIndeces = []       // list of indices, which were removed from connected_users_w_id, used in getUser()
+numUsers = 0              // holds the number of users in a session
 
-// put stack overflow link
+// Returns true if the passed in value is a JSON object
+// https://stackoverflow.com/questions/3710204/how-to-check-if-a-string-is-a-valid-json-string-in-javascript-without-using-try
 function isJSON (something) {
     if (typeof something != 'string')
         something = JSON.stringify(something);
@@ -21,99 +22,82 @@ function isJSON (something) {
     }
 }
 
-// change name of method
-function getUser(id){
+// This mehod retrieves the name of the user which disconnected. The method
+// iterates through the list of the currently connected users and searches
+// for the mathcing UUID, which was passed in. Once the matching UUID has
+// been found, the corresponding name of the UUID is assigned to the name
+// variable and then returned. Also the user is delted from both connected
+// usere lists.
+function getUserAndDelete(id){
     var name
-    ctUsrsLenth = countProperties(connected_users_w_id)
-    console.log(ctUsrsLenth)
+    connectedUsrsLenth = countProperties(connected_users_w_id)
     for(var i = 0; i < numUsers; i++){
       if(removedIndeces.includes(i) === false){
-        console.log("the UUID " + connected_users_w_id[i].UUID)
         if(id === connected_users_w_id[i].UUID){
+
           name = connected_users_w_id[i].name
           delete connected_users_w_id[i]
           delete connected_users[i]
           removedIndeces.push(i)
-          //numUsers--
           break
-
       }
     }
-    }
+  }
 
-    if(ctUsrsLenth === 1){
+    if(connectedUsrsLenth === 1){
       numUsers = 0
       removedIndeces = []
-
     }
-    console.log("Num Users " + numUsers)
     return name
 }
-
+// Returns the number of items in an object
 //https://stackoverflow.com/questions/956719/number-of-elements-in-a-javascript-object
 function countProperties(obj) {
     return Object.keys(obj).length;
 }
 
-// function removeA(arr) {
-//     var what, a = arguments, L = a.length, ax;
-//     while (L > 1 && arr.length) {
-//         what = a[--L];
-//         while ((ax= arr.indexOf(what)) !== -1) {
-//             arr.splice(ax, 1);
-//         }
-//     }
-//     return arr;
-// }
-
-
-// Possibly include client authentication
-
+// start connection
 wss.on('connection', function connection(ws, request) {
 
   ws.client_id = uuid.v4();
 
   ws.send('Your client Id:' + ws.client_id)
 
+  // recieve messages
   ws.on('message', function incoming(message) {
     console.log('Received: %s', message);
 
-
-
+    // Check if received message is a JSON object. If yes, then that means
+    // that the message is a conversation message and it needs to be sent
+    // out to all clients. If no, then the message is a connection confirmation
+    // message. (NOTE: the only time a message will not be a JSON object, is
+    // the first message from every client.)
     if(isJSON(message) === true){
       var obj = JSON.parse(message)
-      console.log("The Name Is: " + obj.name)
-      console.log("The Message Is: " + obj.message)
-
+      // send message to all clients
       wss.clients.forEach(function each(client){
-        //if(client !== ws && client.readyState === WebSocket.OPEN){
         if(client.readyState === WebSocket.OPEN){
           client.send(message)
         }
       })
 
-      //ws.send("Message" + message)
     } else{
-      //flip statement around later Possibly
+      // get the name of the name of the newly connected client, by getting
+      // a substring from the recieved message, since the clients name will
+      // always be the first word in the confirmation message
       var pos = message.indexOf(" ")
       var clientName = message.substring(0, pos)
 
+      // add client name the corresponding UUID to the list
       var userWid = {name: clientName, UUID: ws.client_id} // user with UUID
       connected_users_w_id[numUsers] = userWid
-
+      // add client to the list
       connected_users[numUsers] = clientName
 
-      //connected_users_w_id.push(userWid) // store user with correspding UUID to current connected_users_w_id list
-      //console.log(connected_users_w_id)
-
-      //connected_users.push(clientName)
-
-      //var connectData = {dataType: "usrConnect", message: "NULL", name: clientName, UUID: ws.client_id}
-
-
-
-
-
+      // This object is sent out to every newly connected client. The purpose
+      // of sending out this object is because it contains a list of
+      // the currently connected users, which is used for displaying
+      // the current users in the side bar, in the chat view.
       var makeConnections = {
         dataType: "makeConnections",
         message: "NULL",
@@ -122,6 +106,11 @@ wss.on('connection', function connection(ws, request) {
         connectedUsers: connected_users
       }
 
+      // This object is sent out to all clients, except the newly connected
+      // client, every time a new clients connects to the chat session. The
+      // purpose of sending out this object is because it contains the name
+      // of the newly connected client, so they can add it to their user display
+      // lists.
       var addUsr = {
         dataType: "addUsr",
         message: "NULL",
@@ -130,22 +119,17 @@ wss.on('connection', function connection(ws, request) {
         connectedUsers: {}
       }
 
-      console.log("Accessed")
-
+      // sending data to clients
       wss.clients.forEach(function each(client){
-        //send to all but self
+        // send to self
         if(client === ws && client.readyState === WebSocket.OPEN){
           client.send(JSON.stringify(makeConnections))
         }
-
+        // send to all but self
         if(client !== ws && client.readyState === WebSocket.OPEN){
           client.send(JSON.stringify(addUsr))
         }
       })
-
-
-      // console.log(JSON.stringify(connectData))
-        console.log(makeConnections)
 
         numUsers++
     }
@@ -157,21 +141,12 @@ wss.on('connection', function connection(ws, request) {
   ws.on('close', function(){
     console.log('client droped:', ws.client_id)
 
-    // possibly use a Map
-
     //get username of user which disconnected
-    // change name of method
-    var userName = getUser(ws.client_id)
+    var userName = getUserAndDelete(ws.client_id)
 
-    console.log("userName: " + userName)
-    console.log("numUsers: " + numUsers)
-    console.log("connected_users")
-    console.log(connected_users)
-    console.log("connected_users_w_id")
-    console.log(connected_users_w_id)
-
-
-
+    // This object is sent out to all remaining clients, notifying them
+    // that this client has disconnected. The clients use this data
+    // to remove this client from their user display lists.
     var disconnectData = {dataType: "usrDisconnect",
                           message: "NULL",
                           name: userName,
@@ -179,7 +154,7 @@ wss.on('connection', function connection(ws, request) {
                           connectedUsers: []
                         }
 
-    console.log(disconnectData)
+    // Send data to clients
     wss.clients.forEach(function each(client){
       //send to all but self
       if(client !== ws && client.readyState === WebSocket.OPEN){

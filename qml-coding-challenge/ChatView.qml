@@ -5,10 +5,8 @@ import QtWebSockets 1.1
 
 Page{
     id: root
-    property string currentUser
-    //property string currentUserID
-    property int numUsersConnected: 0
-    //property var connectedUsers: []
+    property string currentUser         // holds the name of the current user of the client
+    property int numUsersConnected: 0   // holds the number of currently connected users to this client
 
     WebSocket{
         id:socket
@@ -22,85 +20,92 @@ Page{
 
                 socket.sendTextMessage(currentUser + " received (" + message + ")")
             } else{
-
-
+                // Each recieved JSON object has unique dataType identifier,
+                // which defines the type of operation that needs to be
+                // done with the data
                 if(JSON.parse(message).dataType === "message"){
-
-                    var sendUsr = JSON.parse(message).name
-                    var recievedMsg = JSON.parse(message).message
-
-                    var displayString
-                    if(sendUsr === currentUser){
-                        displayString = "(Me): " + recievedMsg
-                    } else {
-                        displayString = sendUsr + ": " + recievedMsg
-                    }
-
-                    chatTranscriptText.append(displayString)
+                    //add message to message board
+                    addMessageToBoard(message)
 
                 } else if(JSON.parse(message).dataType === "makeConnections"){
-                    chatTranscriptText.append("connections were made")
                     // for new connection, add all users to users board
-                    //chatTranscriptText.append(JSON.parse(message).name + " has connected")
                     addAllUsers(JSON.parse(message).connectedUsers)
 
-
                 } else if(JSON.parse(message).dataType === "addUsr"){
-                    // when new user, connect that user to users board
-                    chatTranscriptText.append("user was added")
-                    console.log("This is the new name " + JSON.parse(message).name)
+                    // when new user, connect that user to users' board
                     addUser(JSON.parse(message).name)
 
                 } else if(JSON.parse(message).dataType === "usrDisconnect"){
-                    chatTranscriptText.append(JSON.parse(message).name + " has disconnected")
+                    // remove disconnected user from users' board
                     removeUser(JSON.parse(message).name)
+
                 } else{
+                    // if none of the previous operations occured, an
+                    // error most likely occured
                     chatTranscriptText.append("An Error Has Occured")
                 }
             }
         }
     }
 
-    function isJSON (something) {
-        if (typeof something != 'string')
-            something = JSON.stringify(something);
+    // Returns true if the passed in value is a JSON object
+    // https://stackoverflow.com/questions/3710204/how-to-check-if-a-string-is-a-valid-json-string-in-javascript-without-using-try
+    function isJSON (theObj) {
+        if (typeof theObj != 'string')
+            theObj = JSON.stringify(theObj);
 
         try {
-            JSON.parse(something);
+            JSON.parse(theObj);
             return true;
         } catch (e) {
             return false;
         }
     }
 
+    // Adds message and name of user who sent the message
+    // to the message board
+    function addMessageToBoard(message){
+
+        var sendUsr = JSON.parse(message).name
+        var recievedMsg = JSON.parse(message).message
+
+        var displayString
+        if(sendUsr === currentUser){
+            displayString = "(Me): " + recievedMsg
+        } else {
+            displayString = "<b>" + sendUsr + "</b>" + ": " + recievedMsg
+        }
+
+        chatTranscriptText.append(displayString)
+    }
+
+    // Adds one user to the display board
     function addUser(user){
         if(user !== currentUser){
-        connectedUsrsListModel.append({displayedUser: user})
-        console.log(user)
+            connectedUsrsListModel.append({displayedUser: user})
+//            console.log(user)
         }
         numUsersConnected++
-        console.log("Num Users: " + numUsersConnected)
     }
 
 
+    // Adds a list of user to the display board
     function addAllUsers(userList){
-
+        // get number of items in userList object
         var userListLength = countProperties(userList)
 
         for(var i = 0; i < userListLength; i++){
             if(userList[i] !== currentUser){
                 if(userList[i] !== undefined){
                     connectedUsrsListModel.append({displayedUser: userList[i]})
-                    console.log("User at i is " + userList[i])
                     numUsersConnected++
-                    console.log("Num Users: " + numUsersConnected)
                 }
             }
         }
     }
 
+    // Removes a user from the display board
     function removeUser(user){
-        console.log("The user to be deleted is " + user)
         for(var i = 0; i < numUsersConnected; i++){
             if(user === connectedUsrsListModel.get(i).displayedUser){
                 connectedUsrsListModel.remove(i)
@@ -109,55 +114,47 @@ Page{
         }
     }
 
+    // Returns the number of items in an object
     //https://stackoverflow.com/questions/956719/number-of-elements-in-a-javascript-object
     function countProperties(obj) {
         return Object.keys(obj).length;
     }
 
 
-    // Users
-    Rectangle {
-        id: userArea
+    // This rectangle holds the users label
+    Rectangle{
+        id: usersLabel
         x: 0
         y: 0
-        width: 192                // 30 % of whole window
-        height: 480
+        width: 192
+        height: 25
         color: "#290A4E"
-        border.color: "black"
-        border.width: 2
-        //radius: 10
-        // Title Area
-        Rectangle{
-            x: 0
-            y: 0
-            width: 192             // 30 % of whole window
-            height: 25
-            color: "#290A4E"
-            border.color: "black" // for testing
-            border.width: 2       // for testing
-            Text {
-                text: "Users"
-                anchors.centerIn: parent
-                font.family: "Montserrat"
-                font.pointSize: 10.5
-                color: "white"
+
+        Text {
+            text: "Users"
+            anchors.centerIn: parent
+            font.family: "Montserrat"
+            font.pointSize: 10.5
+            color: "white"
             }
         }
-        // User List Area
-        Rectangle{
-            x: 0
-            y: 25
-            width: 192           // 30 % of whole window
-            height: 455
-            color: "#290A4E"
-            border.color: "red"
-            border.width: 2
 
-            ListView{
-                id: connectedUsrsListView
-                anchors.fill: parent
-                model: connectedUsrsListModel
-                delegate: Button{
+    // This rectangle displays the currently connected users
+    Rectangle{
+        id: userDisplayBoard
+        x: 0
+        y: 25
+        width: 192
+        height: 455
+        color: "#290A4E"
+
+    // this segment is responsible for displaying the
+    // currently connected users
+    ListView{
+        id: connectedUsrsListView
+        anchors.fill: parent
+        model: connectedUsrsListModel
+        delegate: Button{
                     x: 0
                     y: 0
                     width: 192
@@ -165,113 +162,88 @@ Page{
                     scale: pressed ? 1.1 : 1
                     Behavior on scale { NumberAnimation { duration: 100 } }
                     background: Rectangle{
-                        color: "lightblue"
-                        opacity: enabled ?  1 : 0.3 // possibly remove later
+                        color: "#4D6DDB"
                     }
                     Text{
                         text: displayedUser
-                        anchors.centerIn: parent
-                        //anchors.baseline: parent
+                        padding: 4
                         color: "black"
                         font.family: "Montserrat"
                         font.pointSize: 10.5
                     }
-
                 }
             }
-
-            ListModel{
-                id: connectedUsrsListModel
-            }
-
+        // this list model holds the currently connected users
+        ListModel{
+            id: connectedUsrsListModel
         }
-
     }
 
+    // This rectangle holds the Conversation label
     Rectangle{
-        id: conversationArea
+        id: conversationLabel
         x: 192
         y: 0
         width: 448
-        height: 480
+        height: 50
         color: "white"
-        border.color: "darkblue" // just for testing
-        border.width: 2          // just for testing
+        Text{
+            text: "Conversation"
+            anchors.centerIn: parent
+            font.family: "Montserrat"
+            font.pointSize: 10.5
+            color: "Black"
+            }
+    }
 
+    // This rectangle contains the conversation
+    Rectangle{
+        id: messageLog
+        x: 197
+        y: 50
+        width: 438
+        height: 350
+        border.color: "black"
+        border.width: 2
+        radius: 5
 
-        // Label (Conversation)
-        Rectangle{
-            x: 0 // relative to parent (where parent = conversationArea)
-            y: 0
-            width: 448
-            height: 50
-            color: "white"
-            Text{
-                text: "Conversation"
-                anchors.centerIn: parent
+        // This component provides a scrolling capability for the message board
+        ScrollView{
+            id: chatTranscirptScroll
+            x: 5
+            y: 5
+            width: 428
+            height: 340
+            clip: true
+            // This segement is responsible for displaying the conversation
+            TextEdit{
+                id: chatTranscriptText
+                width: 428
+                height: chatTranscirptScroll.height
+                readOnly: true
+                textFormat: Text.RichText //enables HTML formatting
+                wrapMode: TextEdit.Wrap
                 font.family: "Montserrat"
                 font.pointSize: 10.5
-                color: "white"
-
             }
         }
-//         Message Log
-        Rectangle{
-            id: messageLog
-            x: 5
-            y: 50
-            width: 438 // 5 pixel margins
-            height: 350 // 480 - 50(label) - 90(textArea) = 340 (changed)
-            border.color: "black"
-            border.width: 2
-            radius: 5
+    }
 
-            ScrollView{
-                id: chatTranscirptScroll
-                x: 5 // test value
-                y: 5
-                width: 428
-                height: 340
-                clip: true
+        // This rectangle contains the message input box
+    Rectangle{
+        id: textInputBox
+        x: 5 + 192
+        y: 405 // 390 + 5(margin)
+        width: 338
+        height: 70
+        border.color: "black"
+        border.width: 2
+        radius: 5
 
-
-                TextEdit{
-                    id: chatTranscriptText
-                    //width: chatTranscirptScroll.wdith
-                    width: 428
-                    height: chatTranscirptScroll.height
-                    readOnly: true
-                    textFormat: Text.RichText //enables HTML formatting
-                    wrapMode: TextEdit.Wrap
-                    font.family: "Montserrat"
-                    font.pointSize: 10.5
-                    //text: recievedMessages.name + ": " + recievedMessages.message
-                    //font.preferShaping: false //may be use, read that in can improve performance
-                }
-
-                // maybe add anchors
-
-            }
-
-        }
-
-
-
-        // Text Input Area (Later Create a seperate file)
-        Rectangle{
-            id: textInputBox
-            x: 5
-            y: 405 // 390 + 5(margin)
-            width: 338
-            height: 70
-            border.color: "black"
-            border.width: 2
-            radius: 5
-
-            function sendData(){
-
-                if(textInput.text.length > 0){
-
+        // send data to the server, which was
+        // inputted into this 'text input box'
+        function sendData(){
+            if(textInput.text.length > 0){
                 var userName = currentUser
                 var myData = {
                         dataType: "message",
@@ -285,50 +257,41 @@ Page{
                 socket.sendTextMessage(theData)
                 textInput.clear()
 
-                }
             }
-
-
-            // do research on all fields
-            TextInput{
-                id: textInput
-
-                color: "black"
-                font.family: "Montserrat"
-                font.pointSize: 10
-
-
-                wrapMode: Text.WrapAnywhere
-                anchors.fill: parent
-                clip: true
-                selectByMouse: true
-                padding: 4
-
-            }
-
         }
 
-        // Possibly create scroll capability for text input
-        Button{
-            id: sendButton
-            x: 348
-            y: 405
-            width: 95
-            height: 70
-            onClicked: textInputBox.sendData()  // if have time add validation, to check if server is running or compatible
-
-                Text{
-                    id: buttonLabel
-                    anchors.centerIn: parent
-                    text: "Send"
-                    //text: buttonName
-                    color: "black"
-                    font.family: "Montserrat"
-                    font.pointSize: 10.5
-                }
+        // This model provides the capablity for inputting text
+        TextInput{
+            id: textInput
+            color: "black"
+            font.family: "Montserrat"
+            font.pointSize: 10
+            wrapMode: Text.WrapAnywhere
+            anchors.fill: parent
+            clip: true
+            selectByMouse: true
+            padding: 4
         }
 
+    }
 
+    // This button is responsible for activating the the sendData() method
+    Button{
+        id: sendButton
+        x: 540
+        y: 405
+        width: 95
+        height: 70
+        onClicked: textInputBox.sendData()  // if have time add validation, to check if server is running or compatible
+
+        Text{
+            id: buttonLabel
+            anchors.centerIn: parent
+            text: "Send"
+            color: "black"
+            font.family: "Montserrat"
+            font.pointSize: 10.5
+        }
     }
 
 }
